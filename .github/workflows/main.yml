@@ -2,18 +2,29 @@ name: Sync to Hugging Face hub
 on:
   push:
     branches: [main]
-  # to run this workflow manually from the Actions tab
   workflow_dispatch:
 
 jobs:
   sync-to-hub:
     runs-on: ubuntu-latest
     steps:
+      # Checkout the repository with LFS support
       - uses: actions/checkout@v3
         with:
           fetch-depth: 0
           lfs: true
-      - name: Push to hub
+      
+      # Ensure Git LFS is installed and initialized
+      - name: Install Git LFS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git-lfs
+          git lfs install
+
+      # Push repository to Hugging Face Hub
+      - name: Push to Hugging Face Hub
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
-        run: git push https://puneeth1:$HF_TOKEN@huggingface.co/spaces/puneeth1/drugrecommendationsystem main
+        run: |
+          git lfs fetch --all
+          git lfs push --all https://puneeth1:$HF_TOKEN@huggingface.co/spaces/puneeth1/drugrecommendationsystem
