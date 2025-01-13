@@ -30,7 +30,7 @@ lemmatizer = WordNetLemmatizer()
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title='PDDRS',
+    page_title='DPDR',
     page_icon='👨‍⚕️',
     layout='wide'
 )
@@ -133,11 +133,29 @@ symptoms = [
 ]
 
 # Input section with multiselect for symptoms
-st.header("📝 Select Patient Symptoms")
-selected_symptoms = st.multiselect("Choose the symptoms:", symptoms)
+st.header("📝 Enter Patient Symptoms")
 
-# Convert selected symptoms to a single string
-raw_text = ", ".join(selected_symptoms)
+# Radio button to choose input method
+input_method = st.radio(
+    "Choose how you want to enter symptoms:",
+    options=["Select from predefined list", "Type your own text"],
+    index=0  # Default to the first option
+)
+
+# Initialize raw_text
+raw_text = ""
+
+# Option 1: Select from predefined list
+if input_method == "Select from predefined list":
+    selected_symptoms = st.multiselect("Choose the symptoms:", symptoms)
+    raw_text = ", ".join(selected_symptoms)
+
+# Option 2: Type your own text
+elif input_method == "Type your own text":
+    raw_text = st.text_area("Describe the patient's symptoms or condition here:", height=100)
+
+# Display the final input text (for debugging or confirmation)
+st.markdown(f"**Input Text:** {raw_text}")
 
 # Function to clean and preprocess text
 def clean_text(raw_review):
@@ -197,41 +215,57 @@ predict_button = st.button("🔍 Predict")
 
 # Display results when the button is clicked
 if predict_button:
-    with st.spinner("🧠 Analyzing the condition and generating recommendations..."):
-        predict(raw_text)
-    
-    st.markdown("---")
-    st.markdown("### 🎯 Condition Predicted")
-    st.markdown(f"<div class='condition-card'><h3>{predicted_cond}</h3></div>", unsafe_allow_html=True)
-    
-    st.markdown("---")
-    st.markdown("### 💊 Top Recommended Drugs")
-    for i, drug in enumerate(top_drugs):
-        if i == 0:
-            st.markdown(f"<div class='drug-card-1'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
-        elif i == 1:
-            st.markdown(f"<div class='drug-card-2'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
-        elif i == 2:
-            st.markdown(f"<div class='drug-card-3'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
-        elif i == 3:
-            st.markdown(f"<div class='drug-card-4'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
-    
-    # Visualize top drugs using a bar chart with matching colors
-    st.markdown("---")
-    st.markdown("### 📊 Drug Recommendations Visualization")
-    df_drugs = pd.DataFrame({"Drug": top_drugs, "Rank": range(len(top_drugs), 0, -1)})  # Reverse ranks
-    fig = px.bar(df_drugs, x="Rank", y="Drug", title="Top Recommended Drugs", 
-                 labels={"Drug": "Drug Name", "Rank": "Rank"},
-                 orientation='h',  # Horizontal bar chart
-                 color="Drug",  # Color by drug name
-                 color_discrete_map={
-                     top_drugs[0]: "#b4befe",  # Lavender
-                     top_drugs[1]: "#a6e3a1",  # Green
-                     top_drugs[2]: "#f38ba8",  # Red
-                     top_drugs[3]: "#f2cdcd"   # Flamingo
-                 })  # Map colors to drugs
-    fig.update_layout(yaxis={'categoryorder':'total ascending'})  # Sort by rank
-    st.plotly_chart(fig, use_container_width=True)
+    # Check if input is empty
+    if not raw_text.strip():
+        st.warning("⚠️ Please enter symptoms or select from the predefined list before predicting.")
+    else:
+        with st.spinner("🧠 Analyzing the condition and generating recommendations..."):
+            predict(raw_text)
+        
+        st.markdown("---")
+        st.markdown("### 🎯 Condition Predicted")
+        st.markdown(f"<div class='condition-card'><h3>{predicted_cond}</h3></div>", unsafe_allow_html=True)
+        
+        st.markdown("---")
+        st.markdown("### 💊 Top Recommended Drugs")
+
+        # Check if recommended drugs are less than 4
+        if len(top_drugs) < 4:
+            st.warning(f"⚠️ Only {len(top_drugs)} recommended drugs are available for this condition.")
+
+        # Display recommended drugs
+        for i, drug in enumerate(top_drugs):
+            if i == 0:
+                st.markdown(f"<div class='drug-card-1'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
+            elif i == 1:
+                st.markdown(f"<div class='drug-card-2'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
+            elif i == 2:
+                st.markdown(f"<div class='drug-card-3'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
+            elif i == 3:
+                st.markdown(f"<div class='drug-card-4'><h4>{i + 1}. {drug}</h4></div>", unsafe_allow_html=True)
+        
+        # Visualize top drugs using a bar chart with matching colors
+        st.markdown("---")
+        st.markdown("### 📊 Drug Recommendations Visualization")
+        df_drugs = pd.DataFrame({"Drug": top_drugs, "Rank": range(len(top_drugs), 0, -1)})  # Reverse ranks
+        color_map = {}
+        if len(top_drugs) >= 1:
+            color_map[top_drugs[0]] = "#b4befe"  # Lavender
+        if len(top_drugs) >= 2:
+            color_map[top_drugs[1]] = "#a6e3a1"  # Green
+        if len(top_drugs) >= 3:
+            color_map[top_drugs[2]] = "#f38ba8"  # Red
+        if len(top_drugs) >= 4:
+            color_map[top_drugs[3]] = "#f2cdcd"  # Flamingo
+            
+        fig = px.bar(df_drugs, x="Rank", y="Drug", title="Top Recommended Drugs", 
+                     labels={"Drug": "Drug Name", "Rank": "Rank"},
+                     orientation='h',  # Horizontal bar chart
+                     color="Drug",  # Color by drug name
+                     color_discrete_map=color_map)  # Map colors to drugs
+        
+        fig.update_layout(yaxis={'categoryorder':'total ascending'})  # Sort by rank
+        st.plotly_chart(fig, use_container_width=True)
 
 # Warning and thank you message
 st.markdown("---")
